@@ -1,71 +1,38 @@
 # from flask import Flask, request, jsonify, render_template, send_file
-# import pytesseract
-# from io import BytesIO
-from bs4 import BeautifulSoup
-# from googletrans import Translator
-# import urllib.request
-# import os
-# import certifi
+import pytesseract
 from PIL import Image
+# from io import BytesIO
+# from googletrans import Translator
+# from urllib.parse import urljoin
+from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.support.ui import WebDriverWait
-import time
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+import urllib.request
+import os
+import certifi
 
+# fix certificate not found error https://stackoverflow.com/a/73270162/26629340
+os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
+os.environ["SSL_CERT_FILE"] = certifi.where()
+
+# url and pytesseract init
 url = 'https://www.czmanga.com/comic/chapter/silingfashiwojishitianzai-mantudezhuyuanzhuheiniaoshe/0_0.html'
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-# # to get rid of certificate not found error from urllib
-# os.environ['REQUESTS_CA_BUNDLE'] = certifi.where()
-# os.environ["SSL_CERT_FILE"] = certifi.where()
-
-# initializes selenium, removes top of browser and opens the url
-options = webdriver.ChromeOptions()
-options.add_argument("--headless=new")
-driver = webdriver.Chrome(options=options)
+# initializes selenium and opens up web scraper, then parses the html of the webpage and finds all the images
+driver = webdriver.Chrome()
 driver.get(url)
+page = driver.page_source
+doc = BeautifulSoup(page, 'html.parser')
+imageLinks = doc.find_all('amp-img')
+images = []
 
-# takes a picture of the entire webpage and saves it
-fullWidth = driver.execute_script('return document.body.parentNode.scrollWidth')
-fullHeight = driver.execute_script('return document.body.parentNode.scrollHeight')
-driver.set_window_size(fullWidth, fullHeight)
-time.sleep(20)
+# avoids non-comic images appending to the images list
+for link in imageLinks:
+    if 'https://s1-rsa1-usla.baozicdn.com/scomic/' in link['src']:
+        images.append(link['src'])
 
-# page = driver.page_source
-# doc = BeautifulSoup(page, 'html.parser')
-# imageLinks = doc.find_all('img')
-# print(imageLinks)
-
-# try:
-#WebDriverWait(driver, 30).until(EC.visibility_of_all_elements_located((By.XPATH, '//img')))
-
-# except TimeoutException as ex:
-#     print('Error' + str(ex))
-#     driver.close()
-
-driver.save_screenshot('imgCombined.png')
-
-imageCombined = Image.open('imgCombined.png')
-imageCombined.show()
-
-# for i in range(4):
-#     img = imageLinks[i]
-#     imgURL = img['src']
-#     urllib.request.urlretrieve(imgURL, 'image')
-#     image = Image.open('image')
-#     images.append(image)
-
-# # parses through list of images and takes the url, which is then converted to bytes and opened, then appended to image list
-# for img in imageLinks:
-#     imgURL = img['src']
-#     urllib.request.urlretrieve(imgURL, 'image')
-#     image = Image.open('image')
-#     images.append(image)
-
-# minSize = sorted([(numpy.sum(i.size), i.size) for i in images])[0][1]
-# imgCombined = numpy.vstack([img.resize(minSize) for img in images])
-# imgCombined = Image.fromarray(imgCombined, 'RGB')
-# imgCombined.save('combined.png')
-# imgCombined.show()
-
+# uses tesseract ocr to extract text from the images
+for img in images:
+    urllib.request.urlretrieve(img, 'img.jpg')
+    im = Image.open('img.jpg')
+    text = pytesseract.image_to_string(im, lang = "chi_sim")
