@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Manhua Translator</title>
+    <style>
+        .overlay {
+            position: absolute;
+            background-color: rgb(0, 0, 0);
+            opacity: 0.7;
+            z-index: 10;
+            font-size: 30px;
+        }
+        .container {
+            position: relative;
+        }
+    </style>
+    <script>
+        function toggleTranslations() {
+            const overlays = document.querySelectorAll('.overlay');
+            overlays.forEach(overlay => {
+                overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+    </script>
+</head>
+<body>
+    <h1>AI Manhua Translator</h1>
+    <form action='/process' method='post' target='_blank'>
+        <input type='text' name='url' placeholder='Enter website URL' required />
+        <button type='submit'>Translate</button>    
+    </form>
+    <button onclick='toggleTranslations()'>Toggle Translations</button>
+    {% for link in images %}
+        <li>
+            <img src='{{link}}'>
+        </li>
+    {% endfor %}
+    {% for key, value in textAndCoords %}
+        <div class="overlay">
+            <span style="position: absolute; left: {{ value[0][0] }}px; top: {{ value[0][1] }}px;"> <!-- x and y -->
+                <p>{{ value[1] }}</p> <!-- text -->
+            </span>
+        </div>
+        
+    {% endfor %}
+
+</body>
+</html>
