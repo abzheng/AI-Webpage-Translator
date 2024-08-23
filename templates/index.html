@@ -37,10 +37,10 @@
             <img src='{{link}}'>
         </li>
     {% endfor %}
-    {% for key, value in textAndCoords %}
+    {% for list in textAndCoords %}
         <div class="overlay">
-            <span style="position: absolute; left: {{ value[0][0] }}px; top: {{ value[0][1] }}px;"> <!-- x and y -->
-                <p>{{ value[1] }}</p> <!-- text -->
+            <span style="position: absolute; left: {{ list[0][0] }}px; top: {{ list[0][1] }}px;"> <!-- x and y -->
+                <p>{{ list[1] }}</p> <!-- text -->
             </span>
         </div>
         
