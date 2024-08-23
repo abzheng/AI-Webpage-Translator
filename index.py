@@ -42,7 +42,6 @@ def process():
     imageLinks = doc.find_all('amp-img')
     images = []
     textAndCoords = []
-    # a = 0
 
     # avoids non-comic images appending to the images list (only testing this script on this one site for now)
     for link in imageLinks:
@@ -61,21 +60,6 @@ def process():
                 translatedText = translator.translate_text(text, source_lang='ZH', target_lang='EN-US',)
                 textAndCoords.append([bbox[0], translatedText.text])
 
-    # # uses tesseract ocr to extract text from the images
-    # for img in images:
-    #     urllib.request.urlretrieve(img, 'img.jpg')
-    #     im = Image.open('img.jpg')
-    #     ocrData = pytesseract.image_to_data(im, output_type=pytesseract.Output.DICT)
-    #     for i in range(len(ocrData['text'])):
-    #         text = ocrData['text'][i].strip()
-    #         if text:
-    #             x, y, w, h = ocrData['left'][i], ocrData['top'][i], ocrData['width'][i], ocrData['height'][i]
-    #             translatedText = translator.translate_text(text, target_lang='EN-US')
-    #             textAndCoords.update({i: [[x, y, w, h], translatedText.text]})
-    #             if a < 10:
-    #                 print(textAndCoords)
-    #                 a += 1
-    
     print (textAndCoords)
     return render_template('index.html', images=images, textAndCoords=textAndCoords)
 
