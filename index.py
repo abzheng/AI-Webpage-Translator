@@ -1,6 +1,4 @@
-import deepl.translator
 from flask import Flask, request, jsonify, render_template, send_file
-import easyocr
 from PIL import Image
 # from io import BytesIO
 import deepl
@@ -10,12 +8,12 @@ from selenium import webdriver
 import urllib.request
 import os
 import certifi
-import numpy as np
-import cv2
-#from matplotlib import pyplot as plt
-import csv
+from paddleocr import PaddleOCR, draw_ocr
+import time
 
-# fix certificate not found error https://stackoverflow.com/a/73270162/26629340
+# fix certificate not found error https://stackoverflow.com/a/73270162/26629340 
+# and PaddleOCR Error #15 https://github.com/PaddlePaddle/PaddleOCR/issues/4613
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 os.environ["REQUESTS_CA_BUNDLE"] = certifi.where()
 os.environ["SSL_CERT_FILE"] = certifi.where()
 
@@ -23,7 +21,7 @@ os.environ["SSL_CERT_FILE"] = certifi.where()
 app = Flask(__name__)
 apiKey = 'c8254cd6-2590-416f-baae-f5130577b26b:fx'
 translator = deepl.Translator(apiKey)
-reader = easyocr.Reader(['ch_sim', 'en'])
+ocr = PaddleOCR(use_angle_cls=True, lang='ch')
 
 # html route init
 @app.route('/')
@@ -48,17 +46,55 @@ def process():
         if 'https://s1-rsa1-usla.baozicdn.com/scomic/' in link['src']:
             images.append(link['src'])
 
-    # easyocr to extract text from the images
+    # PaddleOCR for optimal chinese to english OCR
     for img in images:
         urllib.request.urlretrieve(img, 'img.jpg')
-        im = Image.open('img.jpg')
-        ocrData = reader.readtext(im, width_ths=1, ycenter_ths=1, paragraph=True) # setting to make reader group text instead of reading word by word
+        ocrData = ocr.ocr('img.jpg', cls=True)
+        # ocr returns an extra unnecessary nested list
+        ocrData = ocrData[0]
+        uselessText = {'新免费漫', 'baozi', '包子漫', '.com'}
 
-        # adds text and coordinates to a list
-        for (bbox, text) in ocrData:
-            if text:
-                translatedText = translator.translate_text(text, source_lang='ZH', target_lang='EN-US',)
-                textAndCoords.append([bbox[0], translatedText.text])
+        # remove useless text ^
+        if ocrData:
+            num = len(ocrData) - 1
+            try:
+                while num != -1:
+                    ocrData[num][1] = list(ocrData[num][1])
+
+                    # if anything in uselessText is found in the string the OCR read, delete it
+                    if any(string in ocrData[num][1][0] for string in uselessText):
+                        del ocrData[num]
+
+                    num -= 1
+
+            except IndexError:
+                pass
+
+        # takes the text, translates it to english, and adds the bounding box + translated text to a list
+        # i have try except for now because i cant figure out whats wrong with the indexing
+            try:
+                for index in range(len(ocrData)):
+                    try:
+                        # while the current line of text's x and y are very close to the next line of text's x and y, group them to make translation more fluid, and stop if they arent
+                        print(ocrData[index + 1][0][0][1], ocrData[index][0][0][1])
+                        while 0 < ocrData[index + 1][0][0][1] - ocrData[index][0][0][1] < 1000 and  -300 < ocrData[index][0][0][0] - ocrData[index + 1][0][0][0] < 300:
+                            ocrData[index + 1][1] = list(ocrData[index + 1][1])
+                            ocrData[index][1][0] += ocrData[index + 1][1][0]
+                            del ocrData[index + 1]
+
+                    except IndexError:
+                        pass
+            except IndexError:
+                pass
+
+            for lis in ocrData:
+                translatedText = translator.translate_text(lis[1][0], source_lang='ZH', target_lang='EN-US',)
+                textAndCoords.append([lis[0][0], translatedText.text])
+        
+        # pseudo code 
+        # use IO paint to white out text on the speech bubbles https://github.com/Sanster/IOPaint
+        # write code to put the text on to the image and then append it to a list
+        # return translated images in render_template along with original to toggle on/off
 
     print (textAndCoords)
     return render_template('index.html', images=images, textAndCoords=textAndCoords)
