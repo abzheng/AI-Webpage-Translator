@@ -32,19 +32,10 @@
         <button type='submit'>Translate</button>    
     </form>
     <button onclick='toggleTranslations()'>Toggle Translations</button>
-    {% for link in images %}
+    {% for link in finalImages %}
         <li>
-            <img src='{{link}}'>
+            <img src={{link}}>
         </li>
     {% endfor %}
-    {% for list in textAndCoords %}
-        <div class="overlay">
-            <span style="position: absolute; left: {{ list[0][0] }}px; top: {{ list[0][1] }}px;"> <!-- x and y -->
-                <p>{{ list[1] }}</p> <!-- text -->
-            </span>
-        </div>
-        
-    {% endfor %}
-
 </body>
 </html>

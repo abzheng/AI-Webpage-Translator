@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template, send_file
 from PIL import Image, ImageDraw, ImageFont
-# from io import BytesIO
+from io import BytesIO
 import deepl
 # from urllib.parse import urljoin
 from bs4 import BeautifulSoup
@@ -9,6 +9,7 @@ import urllib.request
 import os
 import certifi
 from paddleocr import PaddleOCR, draw_ocr
+from base64 import b64encode
 
 # fix certificate not found error https://stackoverflow.com/a/73270162/26629340 
 # and PaddleOCR Error #15 https://github.com/PaddlePaddle/PaddleOCR/issues/4613
@@ -21,6 +22,11 @@ app = Flask(__name__)
 apiKey = 'c8254cd6-2590-416f-baae-f5130577b26b:fx'
 translator = deepl.Translator(apiKey)
 ocr = PaddleOCR(use_angle_cls=True, lang='ch')
+
+def pillowImgTob64(pilImg):
+    imgIO = BytesIO()
+    pilImg.save(imgIO, format='JPEG')
+    return b64encode(imgIO.getvalue()).decode('utf-8')
 
 # html route init
 @app.route('/')
@@ -38,7 +44,6 @@ def process():
     doc = BeautifulSoup(page, 'html.parser')
     imageLinks = doc.find_all('amp-img')
     images = []
-    textAndCoords = []
     whitedImage = []
     finalImages = []
     groupedOcrData = []
@@ -117,7 +122,6 @@ def process():
                     line = []
                     groupText = []
                     font = ImageFont.truetype(font='buddychampion.ttf', size=25)
-                    draw = ImageDraw.Draw(whitedImage[0])
                     # right - left of the original text bbox 
                     deltaTextLen = groupedOcrData[-1][2][0] - groupedOcrData[-1][0][0]
                     for word in wordList:
@@ -126,36 +130,30 @@ def process():
                         # right - left of the line length
                         deltaLineLen = font.getbbox(' '.join(line))[2] - font.getbbox(' '.join(line))[0]
                         print(deltaLineLen, '>', deltaTextLen)
+
                         if deltaLineLen  > deltaTextLen:
-                            line.insert(-2, '\n')
-                            groupText.append([line])
-                            line = []
+                            line.insert(-1, '\n')
+                            groupText.append(line)
+                            del line[-1]
+                            line = [word]
+                        # later add an if statement to decrease font size if it exceeds the y coords
+                        # figure out what the bounding box is for some images as its very glitchy
 
-        # pseudo code
-        # write code to put the text on to the image and then append it to a list
-        # return translated images in render_template along with original to toggle on/off
-            # for data in ocrData:
-            #     fontSize = 18
-            #     font = ImageFont.truetype('arial', fontSize)
-            #     draw = ImageDraw.Draw(whitedImage[0])
-            #     xLength = data[0][1][0] - data[0][0][0]
-            #     yLength = data[0][2][1] - data[0][1][1]
-            #     print(xLength, yLength,'\n')
+                    groupText.append(line)
 
-            #     # make a tuple out of this based on the lengths of each side !!!!!!!!!!!!!!!!!!!!!!!!!
-            #     textBbox = draw.textbbox((int((data[0][0][0] + data[0][2][0]) / 2), int((data[0][0][1] + data[0][2][1]) / 2)), translatedText.text, font=font)
-            #     textBboxTuple = (textBbox[2] - textBbox[0], textBbox[3] - textBbox[1])
-            #     while textBboxTuple > (xLength, yLength):
-            #         font = ImageFont.truetype('arial', fontSize)
-            #         fontSize -= 1
-            #         textBbox = draw.textbbox((int((data[0][0][0] + data[0][2][0]) / 2), int((data[0][0][1] + data[0][2][1]) / 2)), translatedText.text, font=font)
-            #         textBboxTuple = (textBbox[2] - textBbox[0], textBbox[3] - textBbox[1])                
+                    print(groupText)
+                    draw = ImageDraw.Draw(im)
+                    y = groupedOcrData[-1][0][1]
+                    clrBlack = (0, 0, 0)
+                    for line in groupText:
+                        print(line)
+                        print(' '.join(line))
+                        draw.text((groupedOcrData[-1][0][0], y), ' '.join(line), clrBlack, font=font)
+                        y += 30
+                    
+                    finalImages.append('data:image/jpeg;base64,' + pillowImgTob64(im))
 
-                #draw.text(, translatedText.text, tuple(data[0][2]), font)
-
-    print (groupedOcrData)
-    whitedImage[6].show()
-    return render_template('index.html', images=images, textAndCoords=textAndCoords, finalImages=finalImages)
+    return render_template('index.html', images=images, finalImages=finalImages)
 
 if __name__ == '__main__':
     app.run(debug=True)
